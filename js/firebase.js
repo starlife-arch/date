@@ -11,15 +11,15 @@ const firebaseConfig = {
 };
 
 // Cloudinary config
-const CLOUDINARY_CLOUD = "YOUR_CLOUDINARY_CLOUD_NAME";
-const CLOUDINARY_PRESET = "YOUR_UPLOAD_PRESET"; // unsigned preset
+const CLOUDINARY_CLOUD = "drlbhxwyv";
+const CLOUDINARY_PRESET = "datevault_uploads"; // unsigned preset
 
 // Stripe config
 const STRIPE_PUBLIC_KEY = "YOUR_STRIPE_PUBLIC_KEY";
 
 // Pesapal config
-const PESAPAL_CONSUMER_KEY = "YOUR_PESAPAL_KEY";
-const PESAPAL_CONSUMER_SECRET = "YOUR_PESAPAL_SECRET";
+const PESAPAL_CONSUMER_KEY = "jOISXxmrtiQP1Ucm2Up1CtIB5VCx+iLt";
+const PESAPAL_CONSUMER_SECRET = "dcVrmFHFLsA3sX7EC0vFDxL4bGY=";
 const PESAPAL_ENV = "sandbox"; // change to "live" for production
 
 // Membership price (USD)
