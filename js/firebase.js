@@ -1,12 +1,13 @@
 // ── FIREBASE CONFIG ──
 // Replace these values with your actual Firebase project settings
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyAu-jRmUXHvTr63jAiU9EMT4CgHhJdNM70",
+  authDomain: "date-ce760.firebaseapp.com",
+  projectId: "date-ce760",
+  storageBucket: "date-ce760.firebasestorage.app",
+  messagingSenderId: "147086773962",
+  appId: "1:147086773962:web:4e20b151b6cd7b405cae33",
+  measurementId: "G-4BMV27H0MJ"
 };
 
 // Cloudinary config
