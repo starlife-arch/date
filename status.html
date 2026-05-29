@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Application Status — DateVault</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <div class="page-loader" id="loader"><div class="loader-logo">DateVault</div></div>
+  <div class="status-page" id="statusPage"></div>
+
+  <script type="module">
+    import { auth, db, onAuthStateChanged } from "./js/auth.js";
+    import { getDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const configs = {
+      pending_verification: {
+        icon: '◎',
+        title: 'Verification Required',
+        text: 'Please complete your membership application to continue.',
+        btn: '<a class="btn btn-gold" href="verification.html">Complete Application</a>',
+        color: 'var(--gold)'
+      },
+      pending_admin_review: {
+        icon: '◈',
+        title: 'Application Under Review',
+        text: 'Your verification has been submitted. Our team will review your application within 24-48 hours. You will receive access once approved.',
+        btn: '',
+        color: '#ffaa00'
+      },
+      rejected: {
+        icon: '◉',
+        title: 'Application Not Approved',
+        text: 'Unfortunately your application was not approved at this time. Please contact support if you believe this is an error.',
+        btn: '<a class="btn btn-outline" href="mailto:support@datevault.com">Contact Support</a>',
+        color: 'var(--danger)'
+      }
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) { window.location.href = 'login.html'; return; }
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      const data = snap.exists() ? snap.data() : {};
+      const status = data.status || 'pending_verification';
+
+      // redirect away if they've moved past these statuses
+      if (['approved_pending_invite','approved_pending_payment','active_member'].includes(status)) {
+        const { routeUser } = await import('./js/auth.js');
+        routeUser(user); return;
+      }
+
+      const cfg = configs[status] || configs.pending_admin_review;
+      const page = document.getElementById('statusPage');
+      page.innerHTML = `
+        <div style="color:${cfg.color};font-size:3.5rem;margin-bottom:0.5rem;">${cfg.icon}</div>
+        <div class="auth-logo" style="font-size:1.25rem;margin-bottom:1rem;">DateVault</div>
+        <h2>${cfg.title}</h2>
+        <p>${cfg.text}</p>
+        ${status === 'pending_admin_review' ? `
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.25rem;max-width:320px;text-align:left;">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:0.5rem;">Your Member ID</div>
+            <div style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--gold);">${data.memberId || ''}</div>
+          </div>
+        ` : ''}
+        ${cfg.btn}
+        <button class="btn btn-outline btn-sm" onclick="doLogout()">Sign Out</button>
+      `;
+      document.getElementById('loader').classList.add('hidden');
+    });
+
+    window.doLogout = async function() {
+      const { logout } = await import('./js/auth.js');
+      logout();
+    };
+  </script>
+</body>
+</html>

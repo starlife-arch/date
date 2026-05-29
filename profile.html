@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Profile — DateVault</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <div class="page-loader" id="loader"><div class="loader-logo">DateVault</div></div>
+  <div class="app-shell">
+    <div class="topbar">
+      <div class="topbar-title">Profile</div>
+      <button onclick="doLogout()" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;">Sign Out</button>
+    </div>
+    <div class="profile-page" id="profileContent"></div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title">Edit Profile</div>
+      <div class="stack" style="max-height:70vh;overflow-y:auto;padding-right:4px;">
+        <div><label>Display Name</label><input type="text" id="editName"/></div>
+        <div><label>Bio</label><textarea id="editBio"></textarea></div>
+        <div><label>Interests (comma separated)</label><input type="text" id="editInterests"/></div>
+        <div>
+          <label>Relationship Goal</label>
+          <select id="editGoal">
+            <option>Long-term relationship</option>
+            <option>Casual dating</option>
+            <option>Friendship</option>
+            <option>Not sure yet</option>
+          </select>
+        </div>
+        <div><label>City</label><input type="text" id="editCity"/></div>
+        <div>
+          <label>Add Photos</label>
+          <div class="upload-box" onclick="document.getElementById('morePhotos').click()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:28px;height:28px;color:var(--muted);margin-bottom:0.5rem;"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 20M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <p style="font-size:13px;color:var(--muted);">Add more photos</p>
+          </div>
+          <input type="file" id="morePhotos" multiple accept="image/*" style="display:none;" onchange="handleNewPhotos(this)"/>
+          <div id="newPhotoPreview" class="photo-strip" style="padding:0;margin-top:0.75rem;"></div>
+        </div>
+        <div id="editError" style="display:none;color:var(--danger);font-size:13px;"></div>
+        <div style="display:flex;gap:0.75rem;">
+          <button class="btn btn-outline" onclick="closeEdit()">Cancel</button>
+          <button class="btn btn-gold btn-full" id="saveBtn" onclick="saveProfile()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a class="nav-item" href="dashboard.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+      Discover
+    </a>
+    <a class="nav-item" href="explore.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Explore
+    </a>
+    <a class="nav-item" href="likes.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+      Likes
+    </a>
+    <a class="nav-item" href="chat.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      Chat
+    </a>
+    <a class="nav-item active" href="profile.html">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profile
+    </a>
+  </nav>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module">
+    import { requireMember, logout, db } from "./js/auth.js";
+    import { uploadToCloudinary } from "./js/verification.js";
+    import { doc, updateDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    let myUser, myProfile, newPhotoFiles = [];
+
+    async function init() {
+      const { user, profile } = await requireMember();
+      myUser = user; myProfile = profile;
+      renderProfile();
+      document.getElementById('loader').classList.add('hidden');
+    }
+
+    function renderProfile() {
+      const p = myProfile;
+      const photo = p.photos && p.photos[0] ? p.photos[0] : '';
+      const age = p.dob ? Math.floor((Date.now() - new Date(p.dob)) / 31557600000) : '';
+      const tags = (p.interests || []).map(i => `<span class="interest-tag">${i}</span>`).join('');
+
+      // Count stats
+      const content = document.getElementById('profileContent');
+      content.innerHTML = `
+        <div class="profile-header">
+          ${photo ? `<img src="${photo}" alt="Profile"/>` : `<div style="width:100%;height:100%;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:3rem;">👤</div>`}
+          <button class="profile-edit-btn" onclick="openEdit()">Edit Profile</button>
+          <div class="overlay">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:4px;">
+              <span class="status-badge status-gold" style="font-size:11px;">Verified Member</span>
+            </div>
+            <div style="font-family:'Cormorant Garamond',serif;font-size:1.75rem;">${p.displayName || p.name || 'Member'}${age ? ', ' + age : ''}</div>
+            <div style="color:rgba(255,255,255,0.75);font-size:13px;">${p.city || ''}${p.city && p.country ? ', ' : ''}${p.country || ''}</div>
+          </div>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-val" id="likesCount">—</div><div class="stat-label">Likes</div></div>
+          <div class="stat-card"><div class="stat-val" id="matchCount">—</div><div class="stat-label">Matches</div></div>
+          <div class="stat-card"><div class="stat-val">${p.memberId || ''}</div><div class="stat-label">Member ID</div></div>
+        </div>
+
+        ${p.photos && p.photos.length > 1 ? `
+          <div class="photo-strip" style="margin-bottom:1rem;">
+            ${p.photos.map(url => `<img class="photo-thumb" src="${url}" alt=""/>`).join('')}
+          </div>
+        ` : ''}
+
+        <div class="glass-card" style="margin-bottom:0.75rem;">
+          <div style="font-size:12px;color:var(--gold);font-weight:600;letter-spacing:0.06em;margin-bottom:0.5rem;">ABOUT</div>
+          <p style="font-size:14px;line-height:1.6;color:rgba(255,255,255,0.8);">${p.bio || 'No bio added yet.'}</p>
+        </div>
+
+        ${tags ? `
+          <div class="glass-card" style="margin-bottom:0.75rem;">
+            <div style="font-size:12px;color:var(--gold);font-weight:600;letter-spacing:0.06em;margin-bottom:0.75rem;">INTERESTS</div>
+            <div class="interests-wrap">${tags}</div>
+          </div>
+        ` : ''}
+
+        <div class="glass-card">
+          <div style="font-size:12px;color:var(--gold);font-weight:600;letter-spacing:0.06em;margin-bottom:0.75rem;">DETAILS</div>
+          <div style="display:flex;flex-direction:column;gap:0.5rem;font-size:14px;">
+            ${p.gender ? `<div class="row"><span class="muted" style="width:120px;">Gender</span><span>${p.gender}</span></div>` : ''}
+            ${p.interestedIn ? `<div class="row"><span class="muted" style="width:120px;">Interested in</span><span>${p.interestedIn}</span></div>` : ''}
+            ${p.relationshipGoal ? `<div class="row"><span class="muted" style="width:120px;">Looking for</span><span>${p.relationshipGoal}</span></div>` : ''}
+          </div>
+        </div>
+      `;
+
+      // Load counts async
+      loadCounts();
+    }
+
+    async function loadCounts() {
+      const matchSnap = await getDocs(collection(db, 'users', myUser.uid, 'matches'));
+      document.getElementById('matchCount').textContent = matchSnap.size;
+      const swipeSnap = await getDocs(collection(db, 'users', myUser.uid, 'swipes'));
+      document.getElementById('likesCount').textContent = swipeSnap.docs.filter(d=>d.data().direction==='like').length;
+    }
+
+    window.openEdit = function() {
+      const p = myProfile;
+      document.getElementById('editName').value = p.displayName || p.name || '';
+      document.getElementById('editBio').value = p.bio || '';
+      document.getElementById('editInterests').value = (p.interests || []).join(', ');
+      document.getElementById('editGoal').value = p.relationshipGoal || '';
+      document.getElementById('editCity').value = p.city || '';
+      document.getElementById('editModal').classList.add('open');
+    };
+
+    window.closeEdit = function() { document.getElementById('editModal').classList.remove('open'); };
+
+    window.handleNewPhotos = function(input) {
+      newPhotoFiles = Array.from(input.files).slice(0, 6);
+      const wrap = document.getElementById('newPhotoPreview');
+      wrap.innerHTML = '';
+      newPhotoFiles.forEach(f => {
+        const r = new FileReader();
+        r.onload = e => { const img = document.createElement('img'); img.className='photo-thumb'; img.src=e.target.result; wrap.appendChild(img); };
+        r.readAsDataURL(f);
+      });
+    };
+
+    window.saveProfile = async function() {
+      const btn = document.getElementById('saveBtn');
+      btn.disabled = true; btn.textContent = 'Saving...';
+      try {
+        let photos = myProfile.photos || [];
+        for (let f of newPhotoFiles) {
+          const url = await uploadToCloudinary(f, 'datevault/profiles');
+          photos.push(url);
+        }
+        photos = photos.slice(0, 6);
+        const updates = {
+          displayName: document.getElementById('editName').value.trim(),
+          bio: document.getElementById('editBio').value.trim(),
+          interests: document.getElementById('editInterests').value.split(',').map(s=>s.trim()).filter(Boolean),
+          relationshipGoal: document.getElementById('editGoal').value,
+          city: document.getElementById('editCity').value.trim(),
+          photos
+        };
+        await updateDoc(doc(db, 'users', myUser.uid), updates);
+        Object.assign(myProfile, updates);
+        closeEdit();
+        renderProfile();
+        showToast('Profile updated');
+      } catch(e) {
+        document.getElementById('editError').textContent = e.message;
+        document.getElementById('editError').style.display = 'block';
+      }
+      btn.disabled = false; btn.textContent = 'Save Changes';
+      newPhotoFiles = [];
+    };
+
+    window.doLogout = function() { logout(); };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    init().catch(console.error);
+  </script>
+</body>
+</html>

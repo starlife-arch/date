@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Likes — DateVault</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <div class="page-loader" id="loader"><div class="loader-logo">DateVault</div></div>
+  <div class="app-shell">
+    <div class="topbar">
+      <div class="topbar-title">Likes</div>
+    </div>
+    <div class="section-tabs">
+      <button class="tab-btn active" id="tabLikedMe" onclick="setTab('likedMe')">Liked You</button>
+      <button class="tab-btn" id="tabMatches" onclick="setTab('matches')">Matches</button>
+    </div>
+    <div id="likedMeGrid" class="profile-grid"></div>
+    <div id="matchesGrid" class="profile-grid" style="display:none;"></div>
+    <div id="emptyMsg" style="display:none;text-align:center;padding:3rem 1rem;color:var(--muted);">
+      <div style="font-size:2.5rem;margin-bottom:0.75rem;color:var(--gold);">◈</div>
+      <p id="emptyText">No likes yet. Keep swiping!</p>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a class="nav-item" href="dashboard.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+      Discover
+    </a>
+    <a class="nav-item" href="explore.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Explore
+    </a>
+    <a class="nav-item active" href="likes.html">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+      Likes
+    </a>
+    <a class="nav-item" href="chat.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      Chat
+    </a>
+    <a class="nav-item" href="profile.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profile
+    </a>
+  </nav>
+
+  <script type="module">
+    import { requireMember, db } from "./js/auth.js";
+    import { collection, getDocs, getDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    let myUser, myProfile;
+
+    async function init() {
+      const { user, profile } = await requireMember();
+      myUser = user; myProfile = profile;
+      document.getElementById('loader').classList.add('hidden');
+      await loadLikes();
+      await loadMatches();
+    }
+
+    async function loadLikes() {
+      // People who liked me (swiped 'like'/'superlike' on my uid)
+      const grid = document.getElementById('likedMeGrid');
+      grid.innerHTML = '';
+      // Query: find all users who have a swipe doc for myUser.uid with direction like/superlike
+      // Due to Firestore structure (subcollection), we query matches where I haven't swiped back
+      const matchSnap = await getDocs(collection(db, 'users', myUser.uid, 'matches'));
+      const matchedUIDs = new Set(matchSnap.docs.map(d => d.id));
+
+      // Get people who swiped me — stored in their swipes subcollection
+      // We reverse-lookup using a top-level swipes_index collection if available, else show message
+      const likedMeSnap = await getDocs(query(collection(db, 'swipes_index'), where('theirUID', '==', myUser.uid), where('direction', 'in', ['like','superlike'])));
+      const likedMe = likedMeSnap.docs.filter(d => !matchedUIDs.has(d.data().myUID));
+
+      if (likedMe.length === 0) {
+        showEmpty('likedMe');
+      } else {
+        for (const d of likedMe) {
+          const uid = d.data().myUID;
+          const snap = await getDoc(doc(db, 'users', uid));
+          if (snap.exists()) renderTile(grid, uid, snap.data(), false);
+        }
+      }
+    }
+
+    async function loadMatches() {
+      const grid = document.getElementById('matchesGrid');
+      grid.innerHTML = '';
+      const snap = await getDocs(collection(db, 'users', myUser.uid, 'matches'));
+      if (snap.empty) { return; }
+      for (const d of snap.docs) {
+        const uid = d.id;
+        const uSnap = await getDoc(doc(db, 'users', uid));
+        if (uSnap.exists()) renderTile(grid, uid, uSnap.data(), true);
+      }
+    }
+
+    function renderTile(grid, uid, profile, isMatch) {
+      const photo = profile.photos && profile.photos[0] ? profile.photos[0] : '';
+      const age = profile.dob ? Math.floor((Date.now() - new Date(profile.dob)) / 31557600000) : '';
+      const tile = document.createElement('div');
+      tile.className = 'profile-tile';
+      tile.innerHTML = `
+        ${photo ? `<img src="${photo}" alt="${profile.displayName}" loading="lazy"/>` : `<div style="width:100%;height:100%;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:2rem;">👤</div>`}
+        ${isMatch ? '<div class="match-badge">MATCH</div>' : ''}
+        <div class="tile-info">
+          <div class="tile-name">${profile.displayName || profile.name || 'Member'}${age ? ', '+age : ''}</div>
+          <div class="tile-meta">${profile.city || profile.country || ''}</div>
+        </div>
+      `;
+      tile.onclick = () => {
+        if (isMatch) window.location.href = `chat.html?uid=${uid}`;
+      };
+      grid.appendChild(tile);
+    }
+
+    function showEmpty(tab) {
+      const isEmpty = tab === 'likedMe' ? document.getElementById('likedMeGrid').children.length === 0 : document.getElementById('matchesGrid').children.length === 0;
+      if (isEmpty) {
+        document.getElementById('emptyMsg').style.display = 'block';
+        document.getElementById('emptyText').textContent = tab === 'likedMe' ? 'No likes yet. Keep swiping!' : 'No matches yet.';
+      }
+    }
+
+    window.setTab = function(tab) {
+      document.getElementById('tabLikedMe').classList.toggle('active', tab === 'likedMe');
+      document.getElementById('tabMatches').classList.toggle('active', tab === 'matches');
+      document.getElementById('likedMeGrid').style.display = tab === 'likedMe' ? 'grid' : 'none';
+      document.getElementById('matchesGrid').style.display = tab === 'matches' ? 'grid' : 'none';
+      document.getElementById('emptyMsg').style.display = 'none';
+      if (tab === 'likedMe' && document.getElementById('likedMeGrid').children.length === 0) showEmpty('likedMe');
+      if (tab === 'matches' && document.getElementById('matchesGrid').children.length === 0) showEmpty('matches');
+    };
+
+    init().catch(console.error);
+  </script>
+</body>
+</html>

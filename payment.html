@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Membership Payment — DateVault</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+  <div class="page-loader" id="loader"><div class="loader-logo">DateVault</div></div>
+  <div class="payment-page">
+    <div class="payment-card fade-up">
+      <div class="auth-logo" style="font-size:1.25rem;margin-bottom:0.25rem;">DateVault</div>
+      <p class="muted" style="text-align:center;margin-bottom:1rem;font-size:13px;">Private Membership Access</p>
+      <div class="price-tag">$29.99</div>
+      <p class="price-period">One-time access fee · Lifetime membership</p>
+      <div class="perks-list">
+        <div class="perk-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+          <span>Unlimited swipes &amp; matches</span>
+        </div>
+        <div class="perk-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+          <span>Global member access (50+ countries)</span>
+        </div>
+        <div class="perk-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+          <span>Verified members only community</span>
+        </div>
+        <div class="perk-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+          <span>End-to-end encrypted messaging</span>
+        </div>
+        <div class="perk-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+          <span>Identity-verified badge on profile</span>
+        </div>
+      </div>
+      <div id="errorMsg" style="display:none;background:rgba(224,92,110,0.1);border:1px solid rgba(224,92,110,0.3);color:var(--danger);padding:0.75rem 1rem;border-radius:12px;font-size:13px;margin-bottom:1rem;"></div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:0.75rem;">Select payment method:</p>
+      <button class="payment-option" id="stripeOpt" onclick="selectMethod('stripe')">
+        <div class="payment-icon">💳</div>
+        <div>
+          <div style="font-weight:600;font-size:14px;">Credit / Debit Card</div>
+          <div style="font-size:12px;color:var(--muted);">Visa, Mastercard, Amex via Stripe</div>
+        </div>
+      </button>
+      <button class="payment-option" id="pesapalOpt" onclick="selectMethod('pesapal')">
+        <div class="payment-icon">📱</div>
+        <div>
+          <div style="font-weight:600;font-size:14px;">M-Pesa / Mobile Money</div>
+          <div style="font-size:12px;color:var(--muted);">Kenya, Uganda, Tanzania &amp; more via Pesapal</div>
+        </div>
+      </button>
+      <div id="stripeForm" style="display:none;margin-top:1rem;">
+        <div id="card-element" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;padding:1rem;"></div>
+        <button class="btn btn-gold btn-full" style="margin-top:1rem;" id="stripePayBtn" onclick="payStripe()">Pay $29.99 with Card</button>
+      </div>
+      <div id="pesapalForm" style="display:none;margin-top:1rem;">
+        <div><label>Phone Number (M-Pesa registered)</label><input type="tel" id="pesapalPhone" placeholder="+254 700 000 000"/></div>
+        <button class="btn btn-gold btn-full" style="margin-top:0.75rem;" id="pesapalPayBtn" onclick="payPesapal()">Pay via M-Pesa</button>
+      </div>
+      <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:1.25rem;">Secure payment · No subscription · One-time only</p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, db, onAuthStateChanged } from "./js/auth.js";
+    import { STRIPE_PUBLIC_KEY } from "./js/firebase.js";
+    import { getDoc, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    let currentUser = null;
+    let stripe = null;
+    let cardElement = null;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) { window.location.href = 'login.html'; return; }
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      if (!snap.exists() || snap.data().status !== 'approved_pending_payment') {
+        const { routeUser } = await import('./js/auth.js');
+        routeUser(user); return;
+      }
+      currentUser = user;
+      stripe = Stripe(STRIPE_PUBLIC_KEY);
+      document.getElementById('loader').classList.add('hidden');
+    });
+
+    window.selectMethod = function(method) {
+      document.getElementById('stripeOpt').classList.remove('selected');
+      document.getElementById('pesapalOpt').classList.remove('selected');
+      document.getElementById('stripeForm').style.display = 'none';
+      document.getElementById('pesapalForm').style.display = 'none';
+
+      document.getElementById(method + 'Opt').classList.add('selected');
+      document.getElementById(method + 'Form').style.display = 'block';
+
+      if (method === 'stripe' && !cardElement) {
+        const elements = stripe.elements({ appearance: { theme: 'night' } });
+        cardElement = elements.create('card', { style: { base: { color: '#f0f2f8', fontFamily: 'DM Sans, sans-serif', fontSize: '15px' } } });
+        cardElement.mount('#card-element');
+      }
+    };
+
+    window.payStripe = async function() {
+      const btn = document.getElementById('stripePayBtn');
+      btn.disabled = true; btn.textContent = 'Processing...';
+      showErr('');
+      // In production: create a PaymentIntent on your backend, then confirmCardPayment
+      // For demo: simulate success
+      try {
+        // TODO: replace with real Stripe PaymentIntent flow
+        // const { paymentMethod, error } = await stripe.createPaymentMethod({ type: 'card', card: cardElement });
+        // Call your backend to create PaymentIntent and confirm
+        await activateMembership('stripe');
+      } catch(e) {
+        showErr(e.message);
+        btn.disabled = false; btn.textContent = 'Pay $29.99 with Card';
+      }
+    };
+
+    window.payPesapal = async function() {
+      const phone = document.getElementById('pesapalPhone').value.trim();
+      if (!phone) { showErr('Please enter your phone number.'); return; }
+      const btn = document.getElementById('pesapalPayBtn');
+      btn.disabled = true; btn.textContent = 'Processing...';
+      showErr('');
+      // TODO: replace with real Pesapal IPN flow via your backend
+      await activateMembership('pesapal');
+    };
+
+    async function activateMembership(method) {
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        paid: true,
+        paymentMethod: method,
+        status: 'active_member',
+        activatedAt: serverTimestamp()
+      });
+      window.location.href = 'dashboard.html';
+    }
+
+    function showErr(msg) {
+      const err = document.getElementById('errorMsg');
+      if (msg) { err.textContent = msg; err.style.display = 'block'; }
+      else err.style.display = 'none';
+    }
+  </script>
+</body>
+</html>

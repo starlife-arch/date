@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ──
+    function isAuth() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    function isActiveMember() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active_member' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.banned == false;
+    }
+
+    // ── Users collection ──
+    match /users/{uid} {
+      // User can read/write their own doc; admins can read/write all
+      allow read: if isOwner(uid) || isAdmin() || isActiveMember();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isAdmin();
+
+      // Swipes subcollection - only the swiper can read/write
+      match /swipes/{swipedUID} {
+        allow read, write: if isOwner(uid) || isAdmin();
+      }
+
+      // Matches subcollection
+      match /matches/{matchUID} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if isActiveMember() || isAdmin();
+      }
+
+      // Blocked users subcollection
+      match /blocked/{blockedUID} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ── Matches (conversations) ──
+    match /matches/{matchId} {
+      // Only users in the match can read
+      allow read: if isAuth() &&
+        (resource.data.users[0] == request.auth.uid ||
+         resource.data.users[1] == request.auth.uid) || isAdmin();
+      allow create, update: if isActiveMember() || isAdmin();
+
+      // Messages subcollection
+      match /messages/{msgId} {
+        allow read: if isAuth() &&
+          (get(/databases/$(database)/documents/matches/$(matchId)).data.users[0] == request.auth.uid ||
+           get(/databases/$(database)/documents/matches/$(matchId)).data.users[1] == request.auth.uid);
+        allow create: if isActiveMember();
+      }
+    }
+
+    // ── Swipes index (for reverse lookup) ──
+    match /swipes_index/{swipeId} {
+      allow read: if isAdmin() || isActiveMember();
+      allow write: if isActiveMember() || isAdmin();
+    }
+
+    // ── Reports ──
+    match /reports/{reportId} {
+      allow create: if isActiveMember();
+      allow read, update: if isAdmin();
+    }
+
+    // ── Verification calls ──
+    match /verification_calls/{callId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}

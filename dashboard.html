@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Discover — DateVault</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <div class="page-loader" id="loader"><div class="loader-logo">DateVault</div></div>
+  <div class="app-shell">
+    <div class="topbar">
+      <div class="topbar-title">Discover</div>
+      <div style="display:flex;gap:0.75rem;align-items:center;">
+        <span id="memberBadge" class="status-badge status-gold" style="font-size:11px;"></span>
+        <button onclick="openFilter()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Swipe Stage -->
+    <div class="swipe-stage">
+      <div class="swipe-deck" id="swipeDeck">
+        <div class="empty-state" id="emptyState" style="display:none;">
+          <div class="icon" style="color:var(--gold);font-size:2.5rem;">◈</div>
+          <p style="font-weight:600;">You've seen everyone</p>
+          <p class="muted">Check back later for new members</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-btns">
+      <button class="action-btn rewind" onclick="rewindCard()" title="Undo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
+      </button>
+      <button class="action-btn nope" onclick="swipeAction('left')" title="Pass">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <button class="action-btn like" onclick="swipeAction('right')" title="Like">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+      </button>
+      <button class="action-btn super" onclick="swipeAction('superlike')" title="Super Like">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Match Popup -->
+  <div class="match-popup" id="matchPopup">
+    <div class="match-popup-title">It's a Match!</div>
+    <div class="match-avatars">
+      <img id="matchMyAvatar" src="" alt=""/>
+      <img id="matchTheirAvatar" src="" alt=""/>
+    </div>
+    <p class="muted" style="text-align:center;">You and <span id="matchName"></span> liked each other</p>
+    <button class="btn btn-gold" onclick="goToChat()">Send a Message</button>
+    <button class="btn btn-outline btn-sm" onclick="closeMatch()">Keep Swiping</button>
+  </div>
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <a class="nav-item active" href="dashboard.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+      Discover
+    </a>
+    <a class="nav-item" href="explore.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Explore
+    </a>
+    <a class="nav-item" href="likes.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+      Likes
+    </a>
+    <a class="nav-item" href="chat.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      Chat
+      <span class="badge" id="chatBadge" style="display:none;"></span>
+    </a>
+    <a class="nav-item" href="profile.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profile
+    </a>
+  </nav>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module">
+    import { requireMember } from "./js/auth.js";
+    import { fetchProfiles, recordSwipe } from "./js/swipe.js";
+    import { db } from "./js/auth.js";
+    import { collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    let profiles = [];
+    let currentIndex = 0;
+    let myProfile = null;
+    let myUser = null;
+    let matchedUID = null;
+    let isDragging = false;
+    let startX = 0, startY = 0, currentX = 0;
+    const SWIPE_THRESHOLD = 80;
+
+    async function init() {
+      const { user, profile } = await requireMember();
+      myUser = user; myProfile = profile;
+      document.getElementById('memberBadge').textContent = profile.memberId || '';
+      document.getElementById('loader').classList.add('hidden');
+      await loadProfiles();
+      listenUnreadChats();
+    }
+
+    async function loadProfiles() {
+      profiles = await fetchProfiles(myUser, myProfile);
+      currentIndex = 0;
+      renderDeck();
+    }
+
+    function renderDeck() {
+      const deck = document.getElementById('swipeDeck');
+      deck.innerHTML = '';
+      if (profiles.length === 0) {
+        document.getElementById('emptyState').style.display = 'flex';
+        deck.appendChild(document.getElementById('emptyState'));
+        return;
+      }
+      // Render up to 3 cards stacked (top = current)
+      const visible = profiles.slice(currentIndex, currentIndex + 3).reverse();
+      visible.forEach((p, i) => {
+        const card = createCard(p, i === visible.length - 1);
+        deck.appendChild(card);
+      });
+    }
+
+    function createCard(profile, isTop) {
+      const card = document.createElement('div');
+      card.className = 'swipe-card';
+      card.dataset.uid = profile.id;
+      const photo = profile.photos && profile.photos[0] ? profile.photos[0] : 'https://via.placeholder.com/400x600/131929/6b7a99?text=No+Photo';
+      const age = profile.dob ? Math.floor((Date.now() - new Date(profile.dob)) / 31557600000) : '';
+      card.innerHTML = `
+        <img src="${photo}" alt="${profile.displayName}" loading="lazy"/>
+        <div class="swipe-indicator indicator-like">LIKE</div>
+        <div class="swipe-indicator indicator-nope">PASS</div>
+        <div class="card-overlay">
+          <div class="card-name">${profile.displayName || profile.name || 'Member'}${age ? ', ' + age : ''}</div>
+          <div class="card-sub">${profile.city || ''}${profile.city && profile.country ? ', ' : ''}${profile.country || ''}</div>
+          ${profile.relationshipGoal ? `<div class="card-badge">${profile.relationshipGoal}</div>` : ''}
+        </div>
+      `;
+      if (isTop) setupDrag(card, profile);
+      return card;
+    }
+
+    function setupDrag(card, profile) {
+      const onStart = (e) => {
+        isDragging = true;
+        const touch = e.touches ? e.touches[0] : e;
+        startX = touch.clientX; startY = touch.clientY;
+        card.style.transition = 'none';
+      };
+      const onMove = (e) => {
+        if (!isDragging) return;
+        const touch = e.touches ? e.touches[0] : e;
+        currentX = touch.clientX - startX;
+        const rotate = currentX * 0.08;
+        card.style.transform = `translateX(${currentX}px) rotate(${rotate}deg)`;
+        card.classList.toggle('dragging-right', currentX > 20);
+        card.classList.toggle('dragging-left', currentX < -20);
+      };
+      const onEnd = async () => {
+        if (!isDragging) return;
+        isDragging = false;
+        card.style.transition = 'transform 0.3s ease';
+        if (currentX > SWIPE_THRESHOLD) {
+          await animateSwipe(card, 'right', profile);
+        } else if (currentX < -SWIPE_THRESHOLD) {
+          await animateSwipe(card, 'left', profile);
+        } else {
+          card.style.transform = '';
+          card.classList.remove('dragging-right', 'dragging-left');
+        }
+        currentX = 0;
+      };
+      card.addEventListener('mousedown', onStart);
+      card.addEventListener('mousemove', onMove);
+      card.addEventListener('mouseup', onEnd);
+      card.addEventListener('touchstart', onStart, { passive: true });
+      card.addEventListener('touchmove', onMove, { passive: true });
+      card.addEventListener('touchend', onEnd);
+    }
+
+    async function animateSwipe(card, dir, profile) {
+      const x = dir === 'right' ? window.innerWidth + 200 : -(window.innerWidth + 200);
+      card.style.transform = `translateX(${x}px) rotate(${dir === 'right' ? 20 : -20}deg)`;
+      await sleep(300);
+      card.remove();
+      const direction = dir === 'right' ? 'like' : 'nope';
+      const isMatch = await recordSwipe(myUser.uid, profile.id, direction);
+      currentIndex++;
+      if (currentIndex >= profiles.length) await loadProfiles();
+      else renderDeck();
+      if (isMatch) showMatch(profile);
+    }
+
+    window.swipeAction = async function(dir) {
+      const deck = document.getElementById('swipeDeck');
+      const topCard = deck.querySelector('.swipe-card:last-child');
+      if (!topCard) return;
+      const uid = topCard.dataset.uid;
+      const profile = profiles.find(p => p.id === uid);
+      if (!profile) return;
+      const direction = dir === 'right' || dir === 'superlike' ? dir === 'superlike' ? 'superlike' : 'like' : 'nope';
+      await animateSwipe(topCard, dir === 'left' ? 'left' : 'right', profile);
+    };
+
+    window.rewindCard = async function() {
+      if (currentIndex <= 0) { showToast('Nothing to undo'); return; }
+      currentIndex--;
+      renderDeck();
+    };
+
+    function showMatch(profile) {
+      matchedUID = profile.id;
+      const photo = profile.photos && profile.photos[0] ? profile.photos[0] : '';
+      const myPhoto = myProfile.photos && myProfile.photos[0] ? myProfile.photos[0] : '';
+      document.getElementById('matchMyAvatar').src = myPhoto;
+      document.getElementById('matchTheirAvatar').src = photo;
+      document.getElementById('matchName').textContent = profile.displayName || 'them';
+      document.getElementById('matchPopup').classList.add('show');
+    }
+
+    window.closeMatch = function() { document.getElementById('matchPopup').classList.remove('show'); };
+    window.goToChat = function() { window.location.href = `chat.html?uid=${matchedUID}`; };
+
+    function listenUnreadChats() {
+      const q = query(collection(db, 'matches'), where('users', 'array-contains', myUser.uid));
+      onSnapshot(q, snap => {
+        let hasUnread = snap.docs.some(d => d.data().hasUnread_[myUser.uid]);
+        document.getElementById('chatBadge').style.display = hasUnread ? 'block' : 'none';
+      });
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    window.openFilter = function() { showToast('Filter coming soon'); };
+
+    init().catch(console.error);
+  </script>
+</body>
+</html>
